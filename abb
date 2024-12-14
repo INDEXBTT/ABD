@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creative URL Cleaner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            padding: 20px;
+            background: linear-gradient(120deg, #f6d365, #fda085);
+            color: #333;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #4a4a4a;
+        }
+        textarea, .output {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+            resize: vertical;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .checkbox-container {
+            display: flex;
+            flex-direction: column;
+            align-items: start;
+            margin: 10px 0;
+        }
+        .checkbox-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .checkbox-label {
+            flex: 1;
+            text-align: left;
+            margin-left: 10px;
+        }
+        .delete-btn {
+            background: #e53935;
+            color: white;
+        }
+        .delete-btn:hover {
+            background: #b71c1c;
+        }
+        .export-btn, .reset-btn {
+            background: #007bff;
+        }
+        .export-btn:hover, .reset-btn:hover {
+            background: #0056b3;
+        }
+        .not-indexed-output {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .checked-url {
+            background-color: #e0f7fa; /* Light blue background */
+            border-color: #4caf50; /* Green border to highlight checked URL */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><i class="fas fa-globe"></i> Creative URL Cleaner</h1>
+        <textarea id="urlInput" rows="10" placeholder="Paste your HTML code here..."></textarea>
+        <button id="extractUrlsBtn">Extract & Clean URLs</button>
+        <button id="checkAllBtn" style="display: none;">Check All URLs</button>
+        <button id="exportUrlsBtn" class="export-btn" style="display: none;">Export URLs</button>
+        <button id="resetBtn" class="reset-btn" style="display: none;">Reset</button>
+    </div>
+
+    <div class="container">
+        <h2>Extracted URLs</h2>
+        <div id="urlList" class="checkbox-container"></div>
+    </div>
+
+    <div class="container">
+        <h2>Not Indexed URLs</h2>
+        <div id="notIndexedUrls" class="not-indexed-output"></div>
+        <button id="copyNotIndexedBtn" class="copy-btn" style="display: none;">Copy Not Indexed URLs</button>
+    </div>
+
+    <script>
+        const extractUrlsBtn = document.getElementById("extractUrlsBtn");
+        const checkAllBtn = document.getElementById("checkAllBtn");
+        const exportUrlsBtn = document.getElementById("exportUrlsBtn");
+        const resetBtn = document.getElementById("resetBtn");
+        const urlInput = document.getElementById("urlInput");
+        const urlList = document.getElementById("urlList");
+        const notIndexedUrls = document.getElementById("notIndexedUrls");
+        const copyNotIndexedBtn = document.getElementById("copyNotIndexedBtn");
+
+        let extractedUrls = [];
+        let notIndexedSet = new Set();
+
+        extractUrlsBtn.addEventListener("click", () => {
+            const htmlContent = urlInput.value;
+            const tempDiv = document.createElement("div");
+            tempDiv.innerHTML = htmlContent;
+            const links = tempDiv.querySelectorAll("a");
+
+            extractedUrls = Array.from(links).map(link => link.href);
+            renderUrlList();
+        });
+
+        checkAllBtn.addEventListener("click", () => {
+            extractedUrls.forEach(url => {
+                window.open(`https://www.google.com/search?q=site:${encodeURIComponent(url)}`, "_blank");
+            });
+        });
+
+        exportUrlsBtn.addEventListener("click", () => {
+            const blob = new Blob([extractedUrls.join("\n")], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "extracted_urls.txt";
+            link.click();
+        });
+
+        resetBtn.addEventListener("click", () => {
+            extractedUrls = [];
+            notIndexedSet.clear();
+            urlList.innerHTML = "";
+            notIndexedUrls.textContent = "No URLs marked as not indexed.";
+            checkAllBtn.style.display = "none";
+            exportUrlsBtn.style.display = "none";
+            copyNotIndexedBtn.style.display = "none";
+            resetBtn.style.display = "none";
+        });
+
+        function renderUrlList() {
+            urlList.innerHTML = "";
+            extractedUrls.forEach(url => {
+                const item = document.createElement("div");
+                item.className = "checkbox-item";
+
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.addEventListener("change", () => toggleNotIndexed(url, checkbox.checked));
+
+                const label = document.createElement("span");
+                label.textContent = url;
+                label.className = "checkbox-label";
+
+                const deleteBtn = document.createElement("button");
+                deleteBtn.textContent = "Delete";
+                deleteBtn.className = "delete-btn";
+                deleteBtn.addEventListener("click", () => {
+                    extractedUrls = extractedUrls.filter(u => u !== url);
+                    renderUrlList();
+                });
+
+                const checkIndexBtn = document.createElement("button");
+                checkIndexBtn.textContent = "Check Index";
+                checkIndexBtn.className = "check-index-btn";
+                checkIndexBtn.addEventListener("click", () => {
+                    window.open(`https://www.google.com/search?q=site:${encodeURIComponent(url)}`, "_blank");
+                    markChecked(item);
+                });
+
+                item.appendChild(checkbox);
+                item.appendChild(label);
+                item.appendChild(deleteBtn);
+                item.appendChild(checkIndexBtn);
+                urlList.appendChild(item);
+            });
+
+            checkAllBtn.style.display = "inline-block";
+            exportUrlsBtn.style.display = "inline-block";
+            resetBtn.style.display = "inline-block";
+        }
+
+        function toggleNotIndexed(url, isChecked) {
+            if (isChecked) {
+                notIndexedSet.add(url);
+            } else {
+                notIndexedSet.delete(url);
+            }
+            updateNotIndexedUrls();
+        }
+
+        function updateNotIndexedUrls() {
+            const urls = Array.from(notIndexedSet);
+            notIndexedUrls.textContent = urls.join("\n") || "No URLs marked as not indexed.";
+            copyNotIndexedBtn.style.display = urls.length > 0 ? "inline-block" : "none";
+        }
+
+        copyNotIndexedBtn.addEventListener("click", () => {
+            const urlsText = Array.from(notIndexedSet).join("\n");
+            navigator.clipboard.writeText(urlsText).then(() => {
+                alert("Not Indexed URLs copied to clipboard!");
+            });
+        });
+
+        function markChecked(item) {
+            item.classList.add("checked-url");
+        }
+    </script>
+</body>
+</html>
+
